@@ -1,0 +1,11 @@
+@import '~@angular/material/theming';
+
+@include mat-core();
+
+// Available color palettes: https://material.io/design/color/
+$login-app-primary: mat-palette($mat-indigo);
+$login-app-accent: mat-palette($mat-deep-orange, A200, A100, A400);
+$login-app-warn: mat-palette($mat-red);
+
+$login-app-theme: mat-light-theme($login-app-primary, $login-app-accent, $login-app-warn);
+@include angular-material-theme($login-app-theme);
