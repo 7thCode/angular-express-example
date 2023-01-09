@@ -6,24 +6,31 @@ const app = express();
 const CONFIG_MODULE: any = require('config');
 
 /*
-	Mongoose
-
-	MongoDBのObjectアダプター
-	MongoDBのカプセル化。(抽象レイヤ)
-
+ *	Mongoose
+ *
+ *	Object Adapter for MongoDB
+ *	MongoDB encapsulation. (abstraction layer)
+ *
 */
 
-let connect_url: string = 'mongodb://localhost/login';
+let connect_url: string = "";
 
-if (CONFIG_MODULE.db) {
-	connect_url = 'mongodb://' + CONFIG_MODULE.db.user + ':' + CONFIG_MODULE.db.password + '@localhost/login';
+if (CONFIG_MODULE.mongodb) {
+	const db = CONFIG_MODULE.mongodb;
+
+	connect_url = 'mongodb://' + db.host + '/' + db.authdb;
+
+	if (CONFIG_MODULE.mongodb.user) {
+		connect_url = 'mongodb://' + db.user + ':' + db.password + '@' + db.host + '/' + db.authdb;
+	}
+
 }
 
 console.log(connect_url);
 
 const MONGOOSE_MODULE = require('mongoose');
 
-// MongoDB接続時、一度だけ実行されるハンドラ
+// Only once when connecting to DB
 MONGOOSE_MODULE.connection.once('open', () => {
 
 	const path = require('path');
@@ -46,47 +53,48 @@ MONGOOSE_MODULE.connection.once('open', () => {
 	app.use(bodyParser.urlencoded({extended: true}));
 
 	/*	Session
-
-		Expressのクッキーセッションをデータベースで永続化
+	*
+	* Persist Express cookie session in database
 	*/
-	/* --------------------ここから--------------------　*/
+	/* --------------------begin-------------------- */
 
 	const SESSION_MODULE = require('express-session');						// Express Session
-	const MONGOSTORE_CLASS = require('connect-mongo');						// 暗号化されたクッキーとデータベースに保存されたセッションを関連づける
+	const MONGOSTORE_CLASS = require('connect-mongo');						// Associating an encrypted cookie with a session stored in the database
 
-	app.use(SESSION_MODULE({												// sessionとMongoDBの接続
-		name: 'login',	                                           			// セッション名
-		secret: 'hogehoge',													// セッション暗号化キー
+	app.use(SESSION_MODULE({												// Connection between session and MongoDB
+		name: 'login',	                                           			// session name
+		secret: 'To be, or not to be.',										// session encryption key
 		resave: false,														//
 		rolling: true,		                                       			//
 		saveUninitialized: true,											//
-		cookie: {maxAge: 365 * 24 * 60 * 60 * 1000},						// クッキー側設定
-		store: MONGOSTORE_CLASS.create({									// MongoDB側接続オブジェクト
+		cookie: {maxAge: 365 * 24 * 60 * 60 * 1000},						// Cookie side setting
+		store: MONGOSTORE_CLASS.create({									// MongoDB side connection object
 			mongoUrl: connect_url,
-//			mongooseConnection: MONGOOSE_MODULE.connection,					// Mongoose接続
+//			mongooseConnection: MONGOOSE_MODULE.connection,					// Mongoose connection
 			ttl: 365 * 24 * 60 * 60,
 //			clear_interval: 60 * 60,
 		}),
 	}));
 
-	/* --------------------ここまで--------------------　*/
+	/* --------------------end-------------------- */
 
 	/*	Passport
-
-		認証モジュール
-		アカウントレコード作成、パスワード認証/ハッシュ化などを行う
-		requestオブジェクトにlogin(),logout()メソッドが追加される。
-		https://knimon-software.github.io/www.passportjs.org/guide/login/
-		https://knimon-software.github.io/www.passportjs.org/guide/logout/
-
-		連携承認
-		https://knimon-software.github.io/www.passportjs.org/guide/authorize/
+	*
+	*   authentication module
+	*	Create account records, password authentication/hashing, etc.
+	*	login() and logout() methods are added to the request object.
+	*	https://knimon-software.github.io/www.passportjs.org/guide/login/
+	*	https://knimon-software.github.io/www.passportjs.org/guide/logout/
+	*
+	*	Cooperation approval
+	*	https://knimon-software.github.io/www.passportjs.org/guide/authorize/
 	*/
-	/* --------------------ここから--------------------　*/
 
-	const PASSPORT_MODULE = require('passport');									// Passport 認証用モジュール
-	const LOCAL_STRATEGY_PLUGIN = require('passport-local').Strategy;				// パスワード認証用Passportプラグイン
-	const LocalAccount = require('./models/account');								// Mongooseアカウント定義
+	/* --------------------begin-------------------- */
+
+	const PASSPORT_MODULE = require('passport');									// Passport authentication module
+	const LOCAL_STRATEGY_PLUGIN = require('passport-local').Strategy;				// Passport plugin for password authentication
+	const LocalAccount = require('./models/account');								// Mongoose account definition
 
 	PASSPORT_MODULE.serializeUser((user: any, done: any) => {
 		done(null, user);
@@ -95,18 +103,18 @@ MONGOOSE_MODULE.connection.once('open', () => {
 		done(null, user);
 	});
 
-	PASSPORT_MODULE.use(new LOCAL_STRATEGY_PLUGIN(LocalAccount.authenticate()));	// Mongooseアカウント定義 - パスワード認証
+	PASSPORT_MODULE.use(new LOCAL_STRATEGY_PLUGIN(LocalAccount.authenticate()));	// Mongoose account definition - password authentication
 
-	app.use(PASSPORT_MODULE.initialize());											// Passportの使用前に必須
-	app.use(PASSPORT_MODULE.session());												// Passportの使用前に必須
+	app.use(PASSPORT_MODULE.initialize());											// Required before using Passport
+	app.use(PASSPORT_MODULE.session());												// Required before using Passport
 
-	/* --------------------ここまで--------------------　*/
+	/* --------------------end-------------------- */
 
 
 	/*	Application	*/
-	/* --------------------ここから--------------------　*/
+	/* --------------------begin-------------------- */
 
-	// ログイン済み？
+	// Already logged in?
 	app.get('/user', (req: any, res: any) => {
 		if (req.user) {
 			res.json({status: 0, value: req.user});
@@ -115,7 +123,7 @@ MONGOOSE_MODULE.connection.once('open', () => {
 		}
 	});
 
-	// ログイン
+	// login
 	app.post('/login', (req: any, res: any) => {
 		if (!req.user) {
 			PASSPORT_MODULE.authenticate('local', (error: any, account: any) => {
@@ -140,7 +148,7 @@ MONGOOSE_MODULE.connection.once('open', () => {
 		}
 	});
 
-	// ログアウト
+	// logout
 	app.get('/logout', (req: any, res: any) => {
 		if (req.user) {
 			req.logout();
@@ -150,7 +158,7 @@ MONGOOSE_MODULE.connection.once('open', () => {
 		}
 	});
 
-	// ユーザ登録
+	// regist
 	app.post('/register', (req: any, res: any) => {
 		if (req.user) {
 			LocalAccount.register(new LocalAccount({username: req.body.username}), req.body.password).then(() => {
@@ -163,14 +171,14 @@ MONGOOSE_MODULE.connection.once('open', () => {
 		}
 	});
 
-	const passwordRouter = require('./routes/password/api');
+	//const passwordRouter = require('./routes/password/api');
 
-	app.use('/password', passwordRouter);
+	//app.use('/password', passwordRouter);
 
-	/* --------------------ここまで--------------------　*/
+	/* --------------------end-------------------- */
 
-	/*	エラー処理	*/
-	/* --------------------ここから--------------------　*/
+	/* error handle */
+	/* --------------------begin-------------------- */
 
 	app.use((req: any, res: any, next: any) => {
 		next(createError(404));
@@ -183,34 +191,34 @@ MONGOOSE_MODULE.connection.once('open', () => {
 		res.render('error');
 	});
 
-	/* --------------------ここまで--------------------　*/
+	/* --------------------end-------------------- */
 
 });
 
-/*	データベース	*/
-/* --------------------ここから--------------------　*/
+/* database */
+/* --------------------begin-------------------- */
 
-// データベースクローズ時
+// When the database is closed
 MONGOOSE_MODULE.connection.on('closed', () => {
 	console.log('closed');
 });
 
-// データベース切断時
+// database disconnected
 MONGOOSE_MODULE.connection.on('disconnected', () => {
 	console.log('disconnected');
 });
 
-// データベース再接続時
+// When reconnecting to the database
 MONGOOSE_MODULE.connection.on('reconnected', () => {
 	console.log('reconnected');
 });
 
-// データベース接続エラー時
+// Database connection error
 MONGOOSE_MODULE.connection.on('error', (error: any) => {
 	console.log('error');
 });
 
-// Mongo接続オプション
+// Mongo connectivity options
 const options = {
 	keepAlive: 1,
 	connectTimeoutMS: 1000000,
@@ -218,11 +226,11 @@ const options = {
 	useUnifiedTopology: true,
 };
 
-MONGOOSE_MODULE.connect(connect_url, options).catch((error: any) => {   // Mongoose接続
+MONGOOSE_MODULE.connect(connect_url, options).catch((error: any) => {   // Mongoose connect
 
 });
 
-/* --------------------ここまで--------------------　*/
+/* --------------------end-------------------- */
 
 module.exports = app;
 
