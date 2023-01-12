@@ -7,7 +7,7 @@
 		"build": "ng build --source-map && gulp",
 		"build-server": "ng build --configuration=production --base-href / && gulp",
 		"api": "python3 api.py",
-		"test": "ng test",
+		"test": "jest",
 		"lint": "ng lint",
 		"e2e": "ng e2e"
 	},
@@ -60,6 +60,9 @@
 		"rx": "^4.1.0",
 		"ts-node": "~9.1.1",
 		"tslint": "~6.1.0",
+		"@types/jest": "^28.1.4",
+    	"jest": "^28.1.2",
+		"ts-jest": "^28.0.5",
 		"typescript": "~4.7.4",
 		"zone.js": "~0.11.3"
 	}
